@@ -9,6 +9,7 @@ import liquibase.exception.ValidationErrors;
 import liquibase.sql.Sql;
 import liquibase.sqlgenerator.SqlGeneratorChain;
 import liquibase.sqlgenerator.SqlGeneratorFactory;
+import liquibase.statement.AutoIncrementConstraint;
 import liquibase.statement.NotNullConstraint;
 import liquibase.statement.core.CreateDatabaseChangeLogTableStatement;
 import liquibase.statement.core.CreateTableStatement;
@@ -31,6 +32,8 @@ public class CreateDatabaseChangeLogTableGenerator extends AbstractSqlGenerator<
         String dateTimeTypeString = getDateTimeTypeString(database);
         CreateTableStatement createTableStatement = new CreateTableStatement(database.getLiquibaseCatalogName(), database.getLiquibaseSchemaName(), database.getDatabaseChangeLogTableName())
                 .setTablespace(database.getLiquibaseTablespaceName())
+                .addPrimaryKeyColumn("internalId", DataTypeFactory.getInstance().fromDescription("bigint", database), null, null, database.getLiquibaseTablespaceName(), new NotNullConstraint())
+                .addColumnConstraint(new AutoIncrementConstraint("internalId"))
                 .addColumn("ID", DataTypeFactory.getInstance().fromDescription(charTypeName + "(" + getIdColumnSize() + ")", database), null, null, new NotNullConstraint())
                 .addColumn("AUTHOR", DataTypeFactory.getInstance().fromDescription(charTypeName + "(" + getAuthorColumnSize() + ")", database), null, null, new NotNullConstraint())
                 .addColumn("FILENAME", DataTypeFactory.getInstance().fromDescription(charTypeName + "(" + getFilenameColumnSize() + ")", database), null, null, new NotNullConstraint())
