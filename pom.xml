@@ -445,6 +445,24 @@
         </snapshotRepository>
     </distributionManagement>
 
+
+    <!-- Needed to be able to download parent POM -->
+    <repositories>
+        <repository>
+            <id>onevox</id>
+            <name>Onevox repository</name>
+            <url>https://devel.onevox.io/repository</url>
+            <snapshots>
+                <enabled>false</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+            </releases>
+        </repository>
+    </repositories>
+
     <profiles>
         <profile>
             <id>release-sign-artifacts</id>
