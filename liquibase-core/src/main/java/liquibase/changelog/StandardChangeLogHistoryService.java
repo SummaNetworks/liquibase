@@ -10,6 +10,7 @@ import liquibase.database.Database;
 import liquibase.database.core.MSSQLDatabase;
 import liquibase.database.core.DB2Database;
 import liquibase.database.core.SQLiteDatabase;
+import liquibase.datatype.DataTypeFactory;
 import liquibase.datatype.core.VarcharType;
 import liquibase.exception.DatabaseException;
 import liquibase.exception.DatabaseHistoryException;
@@ -22,12 +23,15 @@ import liquibase.snapshot.InvalidExampleException;
 import liquibase.snapshot.SnapshotControl;
 import liquibase.snapshot.SnapshotGeneratorFactory;
 import liquibase.sqlgenerator.SqlGeneratorFactory;
+import liquibase.statement.AutoIncrementConstraint;
+import liquibase.statement.NotNullConstraint;
 import liquibase.statement.SqlStatement;
 import liquibase.statement.core.*;
 import liquibase.structure.core.Column;
 import liquibase.structure.core.DataType;
 import liquibase.structure.core.Table;
 
+import java.math.BigInteger;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -109,6 +113,7 @@ public class StandardChangeLogHistoryService extends AbstractChangeLogHistorySer
 
         boolean changeLogCreateAttempted = false;
         if (changeLogTable != null) {
+            boolean hasPK = changeLogTable.getColumn("internalId") != null;
             boolean hasDescription = changeLogTable.getColumn("DESCRIPTION") != null;
             boolean hasComments = changeLogTable.getColumn("COMMENTS") != null;
             boolean hasTag = changeLogTable.getColumn("TAG") != null;
@@ -139,7 +144,20 @@ public class StandardChangeLogHistoryService extends AbstractChangeLogHistorySer
             boolean hasExecTypeColumn = changeLogTable.getColumn("EXECTYPE") != null;
             String charTypeName = getCharTypeName();
             boolean hasDeploymentIdColumn = changeLogTable.getColumn("DEPLOYMENT_ID") != null;
-
+            if (!hasPK) {
+                int nextSequenceValue = 10000;
+                try {
+                    nextSequenceValue = getNextSequenceValue();
+                } catch (LiquibaseException e) {
+                    LogFactory.getLogger().info("Cannot run getNextSequenceValue ", e);
+                }
+                executor.comment("Adding missing databasechangelog.interalId column");
+                statementsToExecute.add(new AddColumnStatement(getLiquibaseCatalogName(), getLiquibaseSchemaName(), getDatabaseChangeLogTableName(), "internalId", "bigint", null));
+                statementsToExecute.add(new RawSqlStatement("update " + getDatabaseChangeLogTableName() + " set internalId = ORDEREXECUTED"));
+                statementsToExecute.add(new AddPrimaryKeyStatement(getLiquibaseCatalogName(), getLiquibaseSchemaName(), getDatabaseChangeLogTableName(), "internalId", "PRIMARY"));
+                statementsToExecute.add(new AddAutoIncrementStatement(getLiquibaseCatalogName(), getLiquibaseSchemaName(), getDatabaseChangeLogTableName(),
+                        "internalId", "bigint", new BigInteger(String.valueOf(nextSequenceValue)), new BigInteger("1")));
+            }
             if (!hasDescription) {
                 executor.comment("Adding missing databasechangelog.description column");
                 statementsToExecute.add(new AddColumnStatement(getLiquibaseCatalogName(), getLiquibaseSchemaName(), getDatabaseChangeLogTableName(), "DESCRIPTION", charTypeName + "(255)", null));
