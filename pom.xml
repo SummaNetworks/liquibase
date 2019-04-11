@@ -64,10 +64,8 @@
 
     <modules>
         <module>liquibase-core</module>
-<!--
         <module>liquibase-maven-plugin</module>
         <module>liquibase-cdi</module>
--->
 <!--        <module>liquibase-integration-tests</module>-->
     </modules>
 
@@ -504,6 +502,7 @@
             </build>
         </profile>
 
+<!--
         <profile>
             <id>debian</id>
             <activation>
@@ -528,6 +527,7 @@
                 <module>liquibase-rpm</module>
             </modules>
         </profile>
+-->
 
         <profile>
             <id>doclint-java8-disable</id>
