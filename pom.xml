@@ -11,7 +11,7 @@
 
     <groupId>org.liquibase</groupId>
     <artifactId>liquibase-parent</artifactId>
-    <version>3.5.5-SNAPSHOT-percona-friendly</version>
+    <version>3.5.5-percona-friendly</version>
     <packaging>pom</packaging>
 
     <name>Liquibase Parent Configuration</name>
