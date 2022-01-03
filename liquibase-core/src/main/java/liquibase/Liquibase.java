@@ -1,6 +1,11 @@
 package liquibase;
 
-import java.io.*;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.io.Writer;
 import java.text.DateFormat;
 import java.util.Arrays;
 import java.util.Collection;
@@ -9,13 +14,38 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.xml.parsers.ParserConfigurationException;
-
 import liquibase.change.CheckSum;
 import liquibase.change.core.RawSQLChange;
-import liquibase.changelog.*;
-import liquibase.changelog.filter.*;
-import liquibase.changelog.visitor.*;
+import liquibase.changelog.ChangeLogHistoryService;
+import liquibase.changelog.ChangeLogHistoryServiceFactory;
+import liquibase.changelog.ChangeLogIterator;
+import liquibase.changelog.ChangeLogParameters;
+import liquibase.changelog.ChangeSet;
+import liquibase.changelog.ChangeSetStatus;
+import liquibase.changelog.DatabaseChangeLog;
+import liquibase.changelog.RanChangeSet;
+import liquibase.changelog.filter.AfterTagChangeSetFilter;
+import liquibase.changelog.filter.AlreadyRanChangeSetFilter;
+import liquibase.changelog.filter.ChangeSetFilter;
+import liquibase.changelog.filter.ChangeSetFilterResult;
+import liquibase.changelog.filter.ContextChangeSetFilter;
+import liquibase.changelog.filter.CountChangeSetFilter;
+import liquibase.changelog.filter.DbmsChangeSetFilter;
+import liquibase.changelog.filter.ExecutedAfterChangeSetFilter;
+import liquibase.changelog.filter.LabelChangeSetFilter;
+import liquibase.changelog.filter.NotRanChangeSetFilter;
+import liquibase.changelog.filter.ShouldRunChangeSetFilter;
+import liquibase.changelog.filter.UpToTagChangeSetFilter;
+import liquibase.changelog.visitor.ChangeExecListener;
+import liquibase.changelog.visitor.ChangeLogSyncListener;
+import liquibase.changelog.visitor.ChangeLogSyncVisitor;
+import liquibase.changelog.visitor.ChangeSetVisitor;
+import liquibase.changelog.visitor.DBDocVisitor;
+import liquibase.changelog.visitor.ExpectedChangesVisitor;
+import liquibase.changelog.visitor.ListVisitor;
+import liquibase.changelog.visitor.RollbackVisitor;
+import liquibase.changelog.visitor.StatusVisitor;
+import liquibase.changelog.visitor.UpdateVisitor;
 import liquibase.database.Database;
 import liquibase.database.DatabaseConnection;
 import liquibase.database.DatabaseFactory;
@@ -60,6 +90,9 @@ import liquibase.util.StringUtils;
  */
 public class Liquibase {
 
+    public static final String PROGRAMMATIC_CHANGE_SET = "programmatic change set";
+    public static final String SET_SESSION_SQL_LOG_BIN_0 = "set SESSION SQL_LOG_BIN=0";
+    public static final String SET_SESSION_SQL_LOG_BIN = "set SESSION SQL_LOG_BIN=";
     private DatabaseChangeLog databaseChangeLog;
     private String changeLogFile;
     private ResourceAccessor resourceAccessor;
@@ -70,11 +103,14 @@ public class Liquibase {
     private ChangeLogParameters changeLogParameters;
     private ChangeExecListener changeExecListener;
     private ChangeLogSyncListener changeLogSyncListener;
+    private boolean asyncMode = false;
 
     private boolean ignoreClasspathPrefix = true;
+    private static Integer sqlLogBin;
 
     /**
-     * Creates a Liquibase instance for a given DatabaseConnection. The Database instance used will be found with {@link DatabaseFactory#findCorrectDatabaseImplementation(liquibase.database.DatabaseConnection)}
+     * Creates a Liquibase instance for a given DatabaseConnection. The Database instance used will be found with
+     * {@link DatabaseFactory#findCorrectDatabaseImplementation(liquibase.database.DatabaseConnection)}
      *
      * @See DatabaseConnection
      * @See Database
@@ -103,6 +139,20 @@ public class Liquibase {
         this.resourceAccessor = resourceAccessor;
         this.changeLogParameters = new ChangeLogParameters(database);
         this.database = database;
+    }
+
+    public Liquibase(String changeLogFile, ResourceAccessor resourceAccessor, Database database, boolean asyncMode) throws LiquibaseException {
+        log = LogFactory.getLogger();
+
+        log.info("Configured liquibase in async mode. It will execute change sets with SESSION SQL_LOG_BIN=0 configured");
+        if (changeLogFile != null) {
+            this.changeLogFile = changeLogFile.replace('\\', '/');  //convert to standard / if using absolute path on windows
+        }
+
+        this.resourceAccessor = resourceAccessor;
+        this.changeLogParameters = new ChangeLogParameters(database);
+        this.database = database;
+        this.asyncMode = asyncMode;
     }
 
     public Liquibase(DatabaseChangeLog changeLog, ResourceAccessor resourceAccessor, Database database) {
@@ -227,6 +277,42 @@ public class Liquibase {
         if (databaseChangeLog == null) {
             ChangeLogParser parser = ChangeLogParserFactory.getInstance().getParser(changeLogFile, resourceAccessor);
             databaseChangeLog = parser.parse(changeLogFile, changeLogParameters, resourceAccessor);
+        }
+
+        if (asyncMode) {
+
+            readSqlLogBin();
+
+            Object nodeId = getChangeLogParameters().getValue("nodeId", databaseChangeLog);
+
+            String idStore = changeLogFile + "_Store_sql_log_bin-${nodeId}";
+            idStore = idStore.replace("${nodeId}", nodeId.toString());
+
+            ChangeSet changeSetStore_sql_log_bin = new ChangeSet(idStore, "hss",
+                    true, true, PROGRAMMATIC_CHANGE_SET,
+                    null, null, true, new DatabaseChangeLog());
+            changeSetStore_sql_log_bin.addChange(new RawSQLChange(SET_SESSION_SQL_LOG_BIN_0));
+
+            changeSetStore_sql_log_bin.addRollbackChange(new RawSQLChange(SET_SESSION_SQL_LOG_BIN + sqlLogBin + ";"));
+
+            changeSetStore_sql_log_bin.setRunOrder("first");
+            changeSetStore_sql_log_bin.setChangeLogParameters(databaseChangeLog.getChangeLogParameters());
+            databaseChangeLog.addChangeSet(changeSetStore_sql_log_bin);
+
+
+            String idRestore = changeLogFile + "_Restore_sql_log_bin-${nodeId}";
+            idRestore = idRestore.replace("${nodeId}", nodeId.toString());
+
+            ChangeSet changeSetRestore_sql_log_bin = new ChangeSet(idRestore, "hss",
+                    true, true, PROGRAMMATIC_CHANGE_SET,
+                    null, null, true, new DatabaseChangeLog());
+            changeSetRestore_sql_log_bin.addChange(new RawSQLChange(SET_SESSION_SQL_LOG_BIN + sqlLogBin + ";"));
+
+            changeSetRestore_sql_log_bin.addRollbackChange(new RawSQLChange(SET_SESSION_SQL_LOG_BIN_0));
+
+            changeSetRestore_sql_log_bin.setRunOrder("last");
+            databaseChangeLog.addChangeSet(changeSetRestore_sql_log_bin);
+
         }
 
         return databaseChangeLog;
@@ -447,6 +533,21 @@ public class Liquibase {
         if (database instanceof MSSQLDatabase && database.getDefaultCatalogName() != null) {
             executor.execute(new RawSqlStatement("USE " + database.escapeObjectName(database.getDefaultCatalogName(), Catalog.class) + ";"));
         }
+    }
+
+    private void readSqlLogBin() throws DatabaseException {
+        Executor executor = ExecutorService.getInstance().getExecutor(database);
+/*
+        DatabaseConnection connection = getDatabase().getConnection();
+        if (connection != null) {
+            executor.comment("Against: " + connection.getConnectionUserName() + "@" + connection.getURL());
+        }
+*/
+        sqlLogBin = executor.queryForInt(new RawSqlStatement("select @@sql_log_bin;"));
+
+        log.info("*********************************************************************");
+        log.info("SQL_LOG_BIN current value saved to be restored: " + sqlLogBin);
+        log.info("*********************************************************************");
     }
 
     public void rollback(int changesToRollback, String contexts, Writer output) throws LiquibaseException {
