@@ -1187,18 +1187,19 @@ public class Liquibase {
     }
 
     public boolean tagExists(String tagString) throws LiquibaseException {
-        LockService lockService = LockServiceFactory.getInstance().getLockService(database);
-        lockService.waitForLock();
+        //LockService lockService = LockServiceFactory.getInstance().getLockService(database);
+        //lockService.waitForLock();
 
         try {
             checkLiquibaseTables(false, null, new Contexts(), new LabelExpression());
             return getDatabase().doesTagExist(tagString);
         } finally {
+            /*
             try {
                 lockService.releaseLock();
             } catch (LockException e) {
                 log.severe("Could not release lock", e);
-            }
+            }*/
         }
     }
 
