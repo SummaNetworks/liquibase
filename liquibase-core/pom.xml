@@ -10,12 +10,12 @@
     <parent>
         <groupId>org.liquibase</groupId>
         <artifactId>liquibase-parent</artifactId>
-        <version>3.5.8-percona-SNAPSHOT</version>
+        <version>3.5.8-percona</version>
     </parent>
 
     <properties>
         <bundle.namespace>liquibase.*</bundle.namespace>
-        <project.version>3.5.7</project.version>
+        <project.version>3.5.8-percona</project.version>
     </properties>
 
     <dependencies>
