@@ -1,18 +1,38 @@
 package liquibase.changelog;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+
 import liquibase.ContextExpression;
 import liquibase.Labels;
+import liquibase.Liquibase;
 import liquibase.change.Change;
 import liquibase.change.ChangeFactory;
 import liquibase.change.CheckSum;
 import liquibase.change.DbmsTargetedChange;
 import liquibase.change.core.EmptyChange;
 import liquibase.change.core.RawSQLChange;
+import liquibase.change.core.TagDatabaseChange;
 import liquibase.changelog.visitor.ChangeExecListener;
 import liquibase.database.Database;
 import liquibase.database.DatabaseList;
 import liquibase.database.ObjectQuotingStrategy;
-import liquibase.exception.*;
+import liquibase.exception.DatabaseException;
+import liquibase.exception.MigrationFailedException;
+import liquibase.exception.PreconditionErrorException;
+import liquibase.exception.PreconditionFailedException;
+import liquibase.exception.RollbackFailedException;
+import liquibase.exception.SetupException;
+import liquibase.exception.UnexpectedLiquibaseException;
+import liquibase.exception.ValidationErrors;
 import liquibase.executor.Executor;
 import liquibase.executor.ExecutorService;
 import liquibase.logging.LogFactory;
@@ -30,14 +50,16 @@ import liquibase.statement.SqlStatement;
 import liquibase.util.StreamUtil;
 import liquibase.util.StringUtils;
 
-import java.util.*;
-
 /**
  * Encapsulates a changeSet and all its associated changes.
  */
 public class ChangeSet implements Conditional, ChangeLogChild {
 
+    public static final String ASYNC_MODE = "__async_mode";
     protected CheckSum checkSum;
+    public static final String SET_SESSION_SQL_LOG_BIN_0 = "set SESSION SQL_LOG_BIN=0";
+    public static final String SET_SESSION_SQL_LOG_BIN = "set SESSION SQL_LOG_BIN=";
+
 
     public enum RunStatus {
         NOT_RAN, ALREADY_RAN, RUN_AGAIN, MARK_RAN, INVALID_MD5SUM
@@ -307,9 +329,38 @@ public class ChangeSet implements Conditional, ChangeLogChild {
         String onValidationFailString = node.getChildValue(null, "onValidationFail", "HALT");
         this.setOnValidationFail(ValidationFailOption.valueOf(onValidationFailString));
 
+        boolean asynDetected = getChangeLog().getChangeLogParameters().hasValue(ASYNC_MODE, getChangeLog())
+                && Boolean.TRUE.equals(getChangeLog().getChangeLogParameters().getValue(ASYNC_MODE, getChangeLog()))
+                && !containsTag(node.getChildren());
+        if (asynDetected){
+            log.debug("This is a asynchronous change, must include SET LOG_BIN = 0 if needed");
+
+            if (Liquibase.sqlLogBin!=0) {
+                changes.add(new RawSQLChange(SET_SESSION_SQL_LOG_BIN_0));
+                rollback.getChanges().add(new RawSQLChange(SET_SESSION_SQL_LOG_BIN_0));
+            }
+        }
+
         for (ParsedNode child : node.getChildren()) {
             handleChildNode(child, resourceAccessor);
         }
+
+        if (asynDetected){
+            log.debug("This is a asynchronous change, must include SET LOG_BIN = 0 if needed");
+            if (Liquibase.sqlLogBin!=0) {
+                changes.add(new RawSQLChange(SET_SESSION_SQL_LOG_BIN + Liquibase.sqlLogBin));
+                rollback.getChanges().add(new RawSQLChange(SET_SESSION_SQL_LOG_BIN + Liquibase.sqlLogBin));
+            }
+        }
+    }
+
+    private boolean containsTag(List<ParsedNode> children) {
+        for (ParsedNode child : children) {
+            if (ChangeFactory.getInstance().create(child.getName()) instanceof TagDatabaseChange){
+                return true;
+            }
+        }
+        return false;
     }
 
     protected void handleChildNode(ParsedNode child, ResourceAccessor resourceAccessor) throws ParsedNodeException {

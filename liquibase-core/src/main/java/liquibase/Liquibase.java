@@ -84,15 +84,14 @@ import liquibase.util.LiquibaseUtil;
 import liquibase.util.StreamUtil;
 import liquibase.util.StringUtils;
 
+import static liquibase.changelog.ChangeSet.ASYNC_MODE;
+
 /**
  * Primary facade class for interacting with Liquibase.
  * The built in command line, Ant, Maven and other ways of running Liquibase are wrappers around methods in this class.
  */
 public class Liquibase {
 
-    public static final String PROGRAMMATIC_CHANGE_SET = "programmatic change set";
-    public static final String SET_SESSION_SQL_LOG_BIN_0 = "set SESSION SQL_LOG_BIN=0";
-    public static final String SET_SESSION_SQL_LOG_BIN = "set SESSION SQL_LOG_BIN=";
     private DatabaseChangeLog databaseChangeLog;
     private String changeLogFile;
     private ResourceAccessor resourceAccessor;
@@ -103,10 +102,9 @@ public class Liquibase {
     private ChangeLogParameters changeLogParameters;
     private ChangeExecListener changeExecListener;
     private ChangeLogSyncListener changeLogSyncListener;
-    private boolean asyncMode = false;
 
     private boolean ignoreClasspathPrefix = true;
-    private static Integer sqlLogBin;
+    public static Integer sqlLogBin;
 
     /**
      * Creates a Liquibase instance for a given DatabaseConnection. The Database instance used will be found with
@@ -151,8 +149,12 @@ public class Liquibase {
 
         this.resourceAccessor = resourceAccessor;
         this.changeLogParameters = new ChangeLogParameters(database);
+        this.changeLogParameters.set(ASYNC_MODE, asyncMode);
         this.database = database;
-        this.asyncMode = asyncMode;
+
+        if (asyncMode) {
+            readSqlLogBin();
+        }
     }
 
     public Liquibase(DatabaseChangeLog changeLog, ResourceAccessor resourceAccessor, Database database) {
@@ -278,43 +280,6 @@ public class Liquibase {
             ChangeLogParser parser = ChangeLogParserFactory.getInstance().getParser(changeLogFile, resourceAccessor);
             databaseChangeLog = parser.parse(changeLogFile, changeLogParameters, resourceAccessor);
         }
-
-        if (asyncMode) {
-
-            readSqlLogBin();
-
-            Object nodeId = getChangeLogParameters().getValue("nodeId", databaseChangeLog);
-
-            String idStore = changeLogFile + "_Store_sql_log_bin-${nodeId}";
-            idStore = idStore.replace("${nodeId}", nodeId.toString());
-
-            ChangeSet changeSetStore_sql_log_bin = new ChangeSet(idStore, "hss",
-                    true, true, PROGRAMMATIC_CHANGE_SET,
-                    null, null, true, new DatabaseChangeLog());
-            changeSetStore_sql_log_bin.addChange(new RawSQLChange(SET_SESSION_SQL_LOG_BIN_0));
-
-            changeSetStore_sql_log_bin.addRollbackChange(new RawSQLChange(SET_SESSION_SQL_LOG_BIN + sqlLogBin + ";"));
-
-            changeSetStore_sql_log_bin.setRunOrder("first");
-            changeSetStore_sql_log_bin.setChangeLogParameters(databaseChangeLog.getChangeLogParameters());
-            databaseChangeLog.addChangeSet(changeSetStore_sql_log_bin);
-
-
-            String idRestore = changeLogFile + "_Restore_sql_log_bin-${nodeId}";
-            idRestore = idRestore.replace("${nodeId}", nodeId.toString());
-
-            ChangeSet changeSetRestore_sql_log_bin = new ChangeSet(idRestore, "hss",
-                    true, true, PROGRAMMATIC_CHANGE_SET,
-                    null, null, true, new DatabaseChangeLog());
-            changeSetRestore_sql_log_bin.addChange(new RawSQLChange(SET_SESSION_SQL_LOG_BIN + sqlLogBin + ";"));
-
-            changeSetRestore_sql_log_bin.addRollbackChange(new RawSQLChange(SET_SESSION_SQL_LOG_BIN_0));
-
-            changeSetRestore_sql_log_bin.setRunOrder("last");
-            databaseChangeLog.addChangeSet(changeSetRestore_sql_log_bin);
-
-        }
-
         return databaseChangeLog;
     }
 
