@@ -422,6 +422,10 @@ public class Liquibase {
         this.update(changesToApply, new Contexts(contexts), new LabelExpression(), output);
     }
 
+    public List<RanChangeSet> getRanChangeSet() throws LiquibaseException {
+        return database.getRanChangeSetList();
+    }
+
     public void update(int changesToApply, Contexts contexts, LabelExpression labelExpression, Writer output) throws LiquibaseException {
         changeLogParameters.setContexts(contexts);
         changeLogParameters.setLabels(labelExpression);
