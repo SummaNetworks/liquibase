@@ -6,6 +6,7 @@ import liquibase.RuntimeEnvironment;
 import liquibase.changelog.filter.*;
 import liquibase.changelog.visitor.SkippedChangeSetVisitor;
 import liquibase.changelog.visitor.ChangeSetVisitor;
+import liquibase.changelog.visitor.UpdateVisitor;
 import liquibase.database.Database;
 import liquibase.exception.LiquibaseException;
 import liquibase.logging.LogFactory;
@@ -16,6 +17,8 @@ import liquibase.util.StringUtils;
 import java.util.*;
 
 public class ChangeLogIterator {
+    private Logger logProgress = LogFactory.getLogger("liquibaseProgress");
+
     private DatabaseChangeLog databaseChangeLog;
     private List<ChangeSetFilter> changeSetFilters;
 
@@ -56,6 +59,9 @@ public class ChangeLogIterator {
             if (visitor.getDirection().equals(ChangeSetVisitor.Direction.REVERSE)) {
                 Collections.reverse(changeSetList);
             }
+            if (visitor instanceof UpdateVisitor) {
+                logProgress.info("Executing " + changeSetList.size() + " change/s\n");
+            }
 
             for (ChangeSet changeSet : changeSetList) {
                 boolean shouldVisit = true;
@@ -85,6 +91,13 @@ public class ChangeLogIterator {
                 }
                 log.setChangeSet(null);
             }
+
+            if (visitor instanceof UpdateVisitor) {
+                logProgress.info("\n\n");
+                //System.out.println();
+                //System.out.println();
+            }
+
         } finally {
             log.setChangeLog(null);
             databaseChangeLog.setRuntimeEnvironment(null);
