@@ -10,7 +10,7 @@
     <parent>
         <groupId>org.liquibase</groupId>
         <artifactId>liquibase-parent</artifactId>
-        <version>3.5.9-percona</version>
+        <version>3.5.10-percona-SNAPSHOT</version>
     </parent>
 
     <properties>

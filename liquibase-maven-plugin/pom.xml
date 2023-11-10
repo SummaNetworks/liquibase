@@ -11,7 +11,7 @@
     <parent>
         <artifactId>liquibase-parent</artifactId>
         <groupId>org.liquibase</groupId>
-        <version>3.5.9-percona</version>
+        <version>3.5.10-percona-SNAPSHOT</version>
     </parent>
 
     <dependencies>
