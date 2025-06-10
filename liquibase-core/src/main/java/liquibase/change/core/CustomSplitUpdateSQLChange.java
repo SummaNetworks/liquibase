@@ -21,7 +21,7 @@ public class CustomSplitUpdateSQLChange implements CustomSqlChange {
     private static final String MIN_LIMIT = "minLimit";
     private static final String MAX_LIMIT = "maxLimit";
     private static final String ITEMS_PER_COMMIT = "itemsPerCommit";
-    private Integer maxNumberOfItems;
+    private Long maxNumberOfItems;
     private Integer itemsPerCommit;
     private Integer sleepInSeconds;
     private String updateQuery;
@@ -33,7 +33,7 @@ public class CustomSplitUpdateSQLChange implements CustomSqlChange {
     public CustomSplitUpdateSQLChange() {
     }
 
-    public CustomSplitUpdateSQLChange(String updateQuery, String rollbackQuery, String countQuery, Integer maxNumberOfItems, Integer itemsPerCommit, Integer sleepInSeconds) {
+    public CustomSplitUpdateSQLChange(String updateQuery, String rollbackQuery, String countQuery, Long maxNumberOfItems, Integer itemsPerCommit, Integer sleepInSeconds) {
         this.countQuery = countQuery;
         this.maxNumberOfItems = maxNumberOfItems;
         this.itemsPerCommit = itemsPerCommit;
@@ -49,11 +49,11 @@ public class CustomSplitUpdateSQLChange implements CustomSqlChange {
         this.countQuery = countQuery;
     }
 
-    public Integer getMaxNumberOfItems() {
+    public Long getMaxNumberOfItems() {
         return maxNumberOfItems;
     }
 
-    public void setMaxNumberOfItems(Integer maxNumberOfItems) {
+    public void setMaxNumberOfItems(Long maxNumberOfItems) {
         this.maxNumberOfItems = maxNumberOfItems;
     }
 
@@ -83,14 +83,14 @@ public class CustomSplitUpdateSQLChange implements CustomSqlChange {
 
     @Override
     public SqlStatement[] generateStatements(Database database) throws CustomChangeException {
-        Integer total;
+        Long total;
 
         if (maxNumberOfItems == null) {
             JdbcExecutor writeExecutor = new JdbcExecutor();
             writeExecutor.setDatabase(database);
             ExecutorService.getInstance().setExecutor(database, writeExecutor);
             try {
-                total = writeExecutor.queryForInt(new RawSqlStatement(countQuery));
+                total = writeExecutor.queryForLong(new RawSqlStatement(countQuery));
             } catch (DatabaseException e) {
                 throw new CustomChangeException(e);
             }

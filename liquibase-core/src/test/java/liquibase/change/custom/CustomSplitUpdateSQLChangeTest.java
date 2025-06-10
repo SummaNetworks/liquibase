@@ -28,7 +28,7 @@ public class CustomSplitUpdateSQLChangeTest {
         change = new CustomSplitUpdateSQLChange(
                 "UPDATE Sim SET sgsnVolatileData_id = hlrVolatileData_id, vlrVolatileData_id = hlrVolatileData_id\n" +
                         "            where hlrVolatileData_id >=minLimit and hlrVolatileData_id&lt;maxLimit;", "UPDATE Sim SET sgsnVolatileData_id = null, vlrVolatileData_id = null\n" +
-                                "                where hlrVolatileData_id >=minLimit and hlrVolatileData_id&lt;maxLimit;", null, 5000000,
+                                "                where hlrVolatileData_id >=minLimit and hlrVolatileData_id&lt;maxLimit;", null, 5000000L,
                 200000, 10);
         validate = change.validate(mock(Database.class));
         assertEquals(validate.getErrorMessages().size(), 0);
@@ -39,7 +39,7 @@ public class CustomSplitUpdateSQLChangeTest {
         CustomSplitUpdateSQLChange change = new CustomSplitUpdateSQLChange(
                 "UPDATE Sim SET sgsnVolatileData_id = hlrVolatileData_id where hlrVolatileData_id >=minLimit " +
                         "and hlrVolatileData_id&lt;maxLimit;", "UPDATE Sim SET sgsnVolatileData_id = null " +
-                "where hlrVolatileData_id >=minLimit and hlrVolatileData_id&lt;maxLimit;",null , 10,
+                "where hlrVolatileData_id >=minLimit and hlrVolatileData_id&lt;maxLimit;",null , 10L,
                 10, 10);
 
 
