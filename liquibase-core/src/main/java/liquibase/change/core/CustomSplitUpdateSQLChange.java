@@ -100,7 +100,7 @@ public class CustomSplitUpdateSQLChange implements CustomSqlChange {
         }
 
         List<SqlStatement> result = new LinkedList<SqlStatement>();
-        Integer currentIndex =  0;
+        long currentIndex =  0;
         while (currentIndex < total){
             String finalQuery = updateQuery.replace(MIN_LIMIT, String.valueOf(currentIndex));
             finalQuery = finalQuery.replace(MAX_LIMIT, String.valueOf(currentIndex + itemsPerCommit));
