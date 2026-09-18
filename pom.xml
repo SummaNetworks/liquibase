@@ -11,7 +11,7 @@
 
     <groupId>org.liquibase</groupId>
     <artifactId>liquibase-parent</artifactId>
-    <version>3.5.11-percona-SNAPSHOT</version>
+    <version>3.5.11-percona</version>
     <packaging>pom</packaging>
 
     <name>Liquibase Parent Configuration</name>
@@ -287,6 +287,16 @@
                     <artifactId>maven-resources-plugin</artifactId>
                     <configuration>
                         <encoding>UTF-8</encoding>
+                        <!-- Binary resources must not be filtered: decoding them as UTF-8
+                             corrupts them (silently on maven-resources-plugin 2.x, with a
+                             MalformedInputException on 3.x). -->
+                        <nonFilteredFileExtensions>
+                            <nonFilteredFileExtension>ttf</nonFilteredFileExtension>
+                            <nonFilteredFileExtension>eot</nonFilteredFileExtension>
+                            <nonFilteredFileExtension>woff</nonFilteredFileExtension>
+                            <nonFilteredFileExtension>woff2</nonFilteredFileExtension>
+                            <nonFilteredFileExtension>otf</nonFilteredFileExtension>
+                        </nonFilteredFileExtensions>
                     </configuration>
                 </plugin>
 
